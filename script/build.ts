@@ -40,6 +40,7 @@ async function buildAll() {
 
   console.log("building client...");
   await viteBuild({
+    base: "/",
     build: {
       outDir: distPath,
       emptyOutDir: true,
@@ -67,6 +68,12 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  // Copiar dist_client a dist/public para compatibilidad con el servidor
+  console.log("copying client assets to dist/public...");
+  const fs = await import("fs/promises");
+  await fs.mkdir("dist/public", { recursive: true });
+  await fs.cp("dist_client", "dist/public", { recursive: true });
 }
 
 buildAll().catch((err) => {
