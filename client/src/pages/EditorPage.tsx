@@ -233,68 +233,86 @@ export default function EditorPage() {
 
   // Generate script whenever nodes change
   useEffect(() => {
-    if (!template?.content) return;
+    // Basic HaxBall script structure as fallback
+    const fallbackScript = `
+// HaxNode Fallback Script
+var NombreHost = "HaxNode Room";
+var VisibilidadDelHost = true;
+var CantidadDeJugadores = 16;
+var PasswordDelHost = null;
 
-    let script = template.content;
+var room = HBInit({
+    roomName: NombreHost,
+    maxPlayers: CantidadDeJugadores,
+    public: VisibilidadDelHost,
+    password: PasswordDelHost,
+    noPlayer: true
+});
+
+room.onPlayerJoin = function(player) {
+    room.sendAnnouncement("¡Bienvenido/a a " + NombreHost + "!", player.id);
+};
+    `.trim();
+
+    let script = template?.content || fallbackScript;
     
     // Helper to get data from a specific node type
     const getData = (type: string) => nodes.find(n => n.type === type)?.data;
 
+    // Enhanced replacement helper with flexible regex
+    const replaceVar = (content: string, varName: string, value: any, isString: boolean = false) => {
+      const escapedValue = isString ? (value === null ? "null" : `'${String(value).replace(/'/g, "\\'")}'`) : value;
+      // Regex matches: var/let/const VarName = (anything); | covers spaces and different quotes
+      const regex = new RegExp(`(var|let|const)\\s+${varName}\\s*=\\s*.*?;`, 'gi');
+      return content.replace(regex, `$1 ${varName} = ${escapedValue};`);
+    };
+
     const hostData = getData('configHost');
     if (hostData) {
-      script = script.replace(/var NombreHost = '.*?';/, `var NombreHost = '${hostData.hostName}';`);
-      script = script.replace(/var VisibilidadDelHost = .*?;/, `var VisibilidadDelHost = ${hostData.public};`);
-      script = script.replace(/var CantidadDeJugadores = .*?;/, `var CantidadDeJugadores = ${hostData.maxPlayers};`);
-      script = script.replace(/var PasswordDelHost = .*?;/, `var PasswordDelHost = ${hostData.password ? `"${hostData.password}"` : 'null'};`);
-      script = script.replace(/var ReiniciarStats = ".*?";/, `var ReiniciarStats = "${hostData.reiniciarStats || 'No'}";`);
+      script = replaceVar(script, 'NombreHost', hostData.hostName, true);
+      script = replaceVar(script, 'VisibilidadDelHost', hostData.public);
+      script = replaceVar(script, 'CantidadDeJugadores', hostData.maxPlayers);
+      script = replaceVar(script, 'PasswordDelHost', hostData.password || null, true);
+      script = replaceVar(script, 'ReiniciarStats', hostData.reiniciarStats || 'No', true);
     }
 
     const rulesData = getData('gameRules');
     if (rulesData) {
-      let mapName = rulesData.mapName;
-      // Normalizing map names if necessary for the regex replacement
-      if (mapName === "Futsal x2") mapName = "Futsalx2";
-      if (mapName === "Futsal x3") mapName = "Futsalx3";
-      if (mapName === "Futsal x4") mapName = "Futsalx4";
-      if (mapName === "Futsal x5") mapName = "Futsalx5";
-      if (mapName === "Futsal x7") mapName = "Futsalx7";
+      script = replaceVar(script, 'MapaPorDefecto', rulesData.mapName, true);
+      script = replaceVar(script, 'TiempoDeJuego', rulesData.timeLimit);
+      script = replaceVar(script, 'LimiteDeGoles', rulesData.scoreLimit);
       
-      script = script.replace(/var MapaPorDefecto = ".*?";/, `var MapaPorDefecto = "${rulesData.mapName}";`);
-      script = script.replace(/var TiempoDeJuego = .*?;/, `var TiempoDeJuego = ${rulesData.timeLimit};`);
-      script = script.replace(/var LimiteDeGoles = .*?;/, `var LimiteDeGoles = ${rulesData.scoreLimit};`);
-      
-      // Game modes
-      script = script.replace(/let autoBalanceEnabled = .*?;/, `let autoBalanceEnabled = ${rulesData.autoBalance};`);
-      script = script.replace(/let CamisetasGanaSigue = .*?;/, `let CamisetasGanaSigue = ${rulesData.ganaSigue};`);
-      script = script.replace(/var cambioCami = .*?;/, `var cambioCami = ${rulesData.cambioCami};`);
-      script = script.replace(/var powerShotMode = .*?;/, `var powerShotMode = ${rulesData.powerShot};`);
-      script = script.replace(/var JabulaniMode = .*?;/, `var JabulaniMode = ${rulesData.jabulaniMode};`);
-      script = script.replace(/var combaMode = .*?;/, `var combaMode = ${rulesData.combaMode};`);
-      script = script.replace(/var GolDeOroActivado = .*?;/, `var GolDeOroActivado = ${rulesData.golDeOro};`);
-      script = script.replace(/var FairPlayActivado = .*?;/, `var FairPlayActivado = ${rulesData.fairPlay};`);
-      script = script.replace(/let ganasigueEnabled = .*?;/, `let ganasigueEnabled = ${rulesData.ganaSigue};`);
-      script = script.replace(/let modoJueganTodos = .*?;/, `let modoJueganTodos = ${rulesData.jueganTodos};`);
-      script = script.replace(/let modoJueganAlgunos = .*?;/, `let modoJueganAlgunos = ${rulesData.jueganAlgunos};`);
-      script = script.replace(/let maxPlayersPerTeam = .*?;/, `let maxPlayersPerTeam = ${rulesData.maxPlayersPerTeam};`);
+      script = replaceVar(script, 'autoBalanceEnabled', rulesData.autoBalance);
+      script = replaceVar(script, 'CamisetasGanaSigue', rulesData.ganaSigue);
+      script = replaceVar(script, 'cambioCami', rulesData.cambioCami);
+      script = replaceVar(script, 'powerShotMode', rulesData.powerShot);
+      script = replaceVar(script, 'JabulaniMode', rulesData.jabulaniMode);
+      script = replaceVar(script, 'combaMode', rulesData.combaMode);
+      script = replaceVar(script, 'GolDeOroActivado', rulesData.golDeOro);
+      script = replaceVar(script, 'FairPlayActivado', rulesData.fairPlay);
+      script = replaceVar(script, 'ganasigueEnabled', rulesData.ganaSigue);
+      script = replaceVar(script, 'modoJueganTodos', rulesData.jueganTodos);
+      script = replaceVar(script, 'modoJueganAlgunos', rulesData.jueganAlgunos);
+      script = replaceVar(script, 'maxPlayersPerTeam', rulesData.maxPlayersPerTeam);
     }
 
     const automatedData = getData('automatedMode');
     if (automatedData) {
-      script = script.replace(/var automatizadoActivado = .*?;/, `var automatizadoActivado = ${automatedData.enabled};`);
-      script = script.replace(/var tiempoLimiteCambio = .*?;/, `var tiempoLimiteCambio = ${automatedData.changeLimit};`);
-      script = script.replace(/var tiempoEsperaCambio = .*?;/, `var tiempoEsperaCambio = ${automatedData.waitTime};`);
+      script = replaceVar(script, 'automatizadoActivado', automatedData.enabled);
+      script = replaceVar(script, 'tiempoLimiteCambio', automatedData.changeLimit);
+      script = replaceVar(script, 'tiempoEsperaCambio', automatedData.waitTime);
       
       const maps = ["EntrenamientoFutsal", "Futsalx2", "Futsalx3", "Futsalx4", "Futsalx5", "Futsalx7"];
       maps.forEach(map => {
-        script = script.replace(new RegExp(`var Tiempo${map} = .*?;`), `var Tiempo${map} = ${automatedData[`time${map}`]};`);
-        script = script.replace(new RegExp(`var Goles${map} = .*?;`), `var Goles${map} = ${automatedData[`goals${map}`]};`);
+        script = replaceVar(script, `Tiempo${map}`, automatedData[`time${map}`]);
+        script = replaceVar(script, `Goles${map}`, automatedData[`goals${map}`]);
       });
     }
 
     const adminData = getData('admin');
     if (adminData) {
-      script = script.replace(/var ClaveParaSerAdmin = ".*?";/, `var ClaveParaSerAdmin = "${adminData.adminKey}";`);
-      script = script.replace(/var contrasena = ".*?";/, `var contrasena = "${adminData.vipKey}";`);
+      script = replaceVar(script, 'ClaveParaSerAdmin', adminData.adminKey, true);
+      script = replaceVar(script, 'contrasena', adminData.vipKey, true);
       
       const adminLines = adminData.adminList.split('\n').filter((l: string) => l.includes(':'));
       const admins = adminLines.map((line: string) => {
@@ -303,53 +321,53 @@ export default function EditorPage() {
         return `  { auth: "${auth.trim()}", nicks: [${nicks}] }`;
       }).join(',\n');
       
-      script = script.replace(/var ListaDeAdmins = \[[\s\S]*?\];/, `var ListaDeAdmins = [\n${admins || '  { auth: "", nicks: [""] }'}\n];`);
+      script = script.replace(/(var|let|const)\s+ListaDeAdmins\s*=\s*\[[\s\S]*?\];/i, `$1 ListaDeAdmins = [\n${admins || '  { auth: "", nicks: [""] }'}\n];`);
     }
 
     const botData = getData('bot');
     if (botData) {
-      script = script.replace(/var BotVisible = .*?;/, `var BotVisible = ${botData.botVisible};`);
-      script = script.replace(/var NombreBot = ".*?";/, `var NombreBot = "${botData.botName}";`);
+      script = replaceVar(script, 'BotVisible', botData.botVisible);
+      script = replaceVar(script, 'NombreBot', botData.botName, true);
     }
 
     const visualsData = getData('visuals');
     if (visualsData) {
-      script = script.replace(/var TamanoMinimoPermitido = .*?;/, `var TamanoMinimoPermitido = ${visualsData.playerSize};`);
-      script = script.replace(/var TamanoMaximoPermitido = .*?;/, `var TamanoMaximoPermitido = ${visualsData.playerSize};`);
-      script = script.replace(/var camisetaRed = ".*?";/, `var camisetaRed = "${visualsData.camisetaRed}";`);
-      script = script.replace(/var camisetaBlue = ".*?";/, `var camisetaBlue = "${visualsData.camisetaBlue}";`);
+      script = replaceVar(script, 'TamanoMinimoPermitido', visualsData.playerSize);
+      script = replaceVar(script, 'TamanoMaximoPermitido', visualsData.playerSize);
+      script = replaceVar(script, 'camisetaRed', visualsData.camisetaRed, true);
+      script = replaceVar(script, 'camisetaBlue', visualsData.camisetaBlue, true);
     }
 
     const socialData = getData('social');
     if (socialData) {
       const msgs = socialData.welcomeMessage.split('\n').map((m: string) => `  \`${m}\``).join(',\n');
-      script = script.replace(/const MensajeDeBienvenida = \[[\s\S]*?\];/, `const MensajeDeBienvenida = [\n${msgs}\n];`);
-      script = script.replace(/var colormensaje = ".*?";/, `var colormensaje = "${socialData.colorMensaje}";`);
-      script = script.replace(/var TipoDeLetra = ".*?";/, `var TipoDeLetra = "${socialData.tipoLetra}";`);
+      script = script.replace(/(var|let|const)\s+MensajeDeBienvenida\s*=\s*\[[\s\S]*?\];/i, `$1 MensajeDeBienvenida = [\n${msgs}\n];`);
+      script = replaceVar(script, 'colormensaje', socialData.colorMensaje, true);
+      script = replaceVar(script, 'TipoDeLetra', socialData.tipoLetra, true);
     }
 
     const announcementData = getData('announcement');
     if (announcementData) {
-      script = script.replace(/var Anuncio = ".*?";/, `var Anuncio = "${announcementData.announcement1}";`);
-      script = script.replace(/var TipoDeLetraAnuncio = ".*?";/, `var TipoDeLetraAnuncio = "${announcementData.font1}";`);
-      script = script.replace(/var ColorAnuncio = ".*?";/, `var ColorAnuncio = "${announcementData.color1}";`);
+      script = replaceVar(script, 'Anuncio', announcementData.announcement1, true);
+      script = replaceVar(script, 'TipoDeLetraAnuncio', announcementData.font1, true);
+      script = replaceVar(script, 'ColorAnuncio', announcementData.color1, true);
       
-      script = script.replace(/var Anuncio2 = ".*?";/, `var Anuncio2 = "${announcementData.announcement2}";`);
-      script = script.replace(/var TipoDeLetraAnuncio2 = ".*?";/, `var TipoDeLetraAnuncio2 = "${announcementData.font2}";`);
-      script = script.replace(/var ColorAnuncio2 = ".*?";/, `var ColorAnuncio2 = "${announcementData.color2}";`);
+      script = replaceVar(script, 'Anuncio2', announcementData.announcement2, true);
+      script = replaceVar(script, 'TipoDeLetraAnuncio2', announcementData.font2, true);
+      script = replaceVar(script, 'ColorAnuncio2', announcementData.color2, true);
     }
 
     const socialNetworksData = getData('socialNetworks');
     if (socialNetworksData) {
-      script = script.replace(/const DiscordLink = ".*?";/, `const DiscordLink = "${socialNetworksData.discordLink}";`);
-      script = script.replace(/const YoutubeLink = ".*?";/, `const YoutubeLink = "${socialNetworksData.youtubeLink}";`);
-      script = script.replace(/const TwitchLink = ".*?";/, `const TwitchLink = "${socialNetworksData.twitchLink}";`);
+      script = replaceVar(script, 'DiscordLink', socialNetworksData.discordLink, true);
+      script = replaceVar(script, 'YoutubeLink', socialNetworksData.youtubeLink, true);
+      script = replaceVar(script, 'TwitchLink', socialNetworksData.twitchLink, true);
     }
 
     const hostCustomData = getData('hostCustomization');
     if (hostCustomData) {
-      script = script.replace(/var UbicacionDelHost = ".*?";/, `var UbicacionDelHost = "${hostCustomData.location}";`);
-      script = script.replace(/var BanderaDelHost = '.*?';/, `var BanderaDelHost = '${hostCustomData.flag}';`);
+      script = replaceVar(script, 'UbicacionDelHost', hostCustomData.location, true);
+      script = replaceVar(script, 'BanderaDelHost', hostCustomData.flag, true);
       
       const countryCoords = {
         "argentina": [-34.6882652, -58.5685501],
@@ -388,64 +406,63 @@ export default function EditorPage() {
         "myubication": null
       };
       
-      script = script.replace(/var countryCoords = \{[\s\S]*?\};/, `var countryCoords = ${JSON.stringify(countryCoords, null, 4)};`);
+      script = script.replace(/(var|let|const)\s+countryCoords\s*=\s*\{[\s\S]*?\};/i, `$1 countryCoords = ${JSON.stringify(countryCoords, null, 4)};`);
     }
 
     const tournamentData = getData('tournamentRules');
     if (tournamentData) {
-      script = script.replace(/var ChallongeLink = '.*?';/, `var ChallongeLink = '${tournamentData.challongeLink}';`);
+      script = replaceVar(script, 'ChallongeLink', tournamentData.challongeLink, true);
       const rules = tournamentData.rules.split('\n').filter((r: string) => r.trim());
       rules.forEach((rule: string, index: number) => {
-        const regex = new RegExp(`var regla${index + 1} = '.*?'`);
-        script = script.replace(regex, `var regla${index + 1} = '${rule}'`);
+        script = replaceVar(script, `regla${index + 1}`, rule, true);
       });
     }
 
     const ballData = getData('ballCustomization');
     if (ballData) {
-      script = script.replace(/var PelotaRS = ".*?";/, `var PelotaRS = "${ballData.pelotaRS}";`);
-      script = script.replace(/var PelotaRS_PowerShot = ".*?";/, `var PelotaRS_PowerShot = "${ballData.pelotaRS_PowerShot}";`);
-      script = script.replace(/var PotenciaPowerShotRS = .*?;/, `var PotenciaPowerShotRS = ${ballData.potenciaPowerShotRS};`);
+      script = replaceVar(script, 'PelotaRS', ballData.pelotaRS, true);
+      script = replaceVar(script, 'PelotaRS_PowerShot', ballData.pelotaRS_PowerShot, true);
+      script = replaceVar(script, 'PotenciaPowerShotRS', ballData.potenciaPowerShotRS);
       
-      script = script.replace(/var PelotaFutsal = ".*?";/, `var PelotaFutsal = "${ballData.pelotaFutsal}";`);
-      script = script.replace(/var PelotaFutsal_PowerShot = ".*?";/, `var PelotaFutsal_PowerShot = "${ballData.pelotaFutsal_PowerShot}";`);
-      script = script.replace(/var PotenciaPowerShot = .*?;/, `var PotenciaPowerShot = ${ballData.potenciaPowerShot};`);
-      script = script.replace(/var TipoPelotaFutsal = ".*?";/, `var TipoPelotaFutsal = "${ballData.tipoPelotaFutsal}";`);
+      script = replaceVar(script, 'PelotaFutsal', ballData.pelotaFutsal, true);
+      script = replaceVar(script, 'PelotaFutsal_PowerShot', ballData.pelotaFutsal_PowerShot, true);
+      script = replaceVar(script, 'PotenciaPowerShot', ballData.potenciaPowerShot);
+      script = replaceVar(script, 'TipoPelotaFutsal', ballData.tipoPelotaFutsal, true);
     }
 
     const securityData = getData('security');
     if (securityData) {
-      script = script.replace(/let cooldownEnabled = .*?;/, `let cooldownEnabled = ${securityData.cooldownEnabled};`);
-      script = script.replace(/let SPAM_LIMIT = .*?;/, `let SPAM_LIMIT = ${securityData.spamLimit};`);
-      script = script.replace(/let KICK_THRESHOLD = .*?;/, `let KICK_THRESHOLD = ${securityData.kickThreshold};`);
-      script = script.replace(/let COOLDOWN_TIME = .*?;/, `let COOLDOWN_TIME = ${securityData.cooldownTime};`);
+      script = replaceVar(script, 'cooldownEnabled', securityData.cooldownEnabled);
+      script = replaceVar(script, 'SPAM_LIMIT', securityData.spamLimit);
+      script = replaceVar(script, 'KICK_THRESHOLD', securityData.kickThreshold);
+      script = replaceVar(script, 'COOLDOWN_TIME', securityData.cooldownTime);
       
-      script = script.replace(/var maxAttempts = .*?;/, `var maxAttempts = ${securityData.maxAttempts};`);
-      script = script.replace(/var alertThreshold = .*?;/, `var alertThreshold = ${securityData.alertThreshold};`);
+      script = replaceVar(script, 'maxAttempts', securityData.maxAttempts);
+      script = replaceVar(script, 'alertThreshold', securityData.alertThreshold);
     }
 
     const rolesData = getData('roles');
     if (rolesData) {
       for (let i = 1; i <= 10; i++) {
         const color = rolesData[`colorRol${i}`] || "FFFFFF";
-        script = script.replace(new RegExp(`const ColorDelChatROL${i} = .*?;`), `const ColorDelChatROL${i} = 0x${color};`);
-        script = script.replace(new RegExp(`const NombreROL${i} = ".*?";`), `const NombreROL${i} = "${rolesData[`nombreRol${i}`] || ""}";`);
+        script = replaceVar(script, `ColorDelChatROL${i}`, `0x${color}`);
+        script = replaceVar(script, `NombreROL${i}`, rolesData[`nombreRol${i}`] || "", true);
         const nicks = (rolesData[`nicknamesRol${i}`] || "").split(',').map((n: string) => `"${n.trim()}"`).filter((n: string) => n !== '""').join(', ');
-        script = script.replace(new RegExp(`const NickNamesRol${i} = \\[\\];`), `const NickNamesRol${i} = [${nicks}];`);
+        script = script.replace(new RegExp(`(var|let|const)\\s+NickNamesRol${i}\\s*=\\s*\\[.*?\\];`, 'gi'), `$1 NickNamesRol${i} = [${nicks}];`);
       }
     }
 
     const accessData = getData('accessRestrictions');
     if (accessData) {
-      script = script.replace(/var ActivarReCaptcha = .*?;/, `var ActivarReCaptcha = ${accessData.reCaptcha};`);
-      script = script.replace(/const LimiteMaximoDeJugadoresAFK = .*?;/, `const LimiteMaximoDeJugadoresAFK = ${accessData.maxAFK};`);
-      script = script.replace(/var MaximoJugadoresPorIp = .*?;/, `var MaximoJugadoresPorIp = ${accessData.maxPerIp};`);
+      script = replaceVar(script, 'ActivarReCaptcha', accessData.reCaptcha);
+      script = replaceVar(script, 'LimiteMaximoDeJugadoresAFK', accessData.maxAFK);
+      script = replaceVar(script, 'MaximoJugadoresPorIp', accessData.maxPerIp);
       const countries = accessData.forbiddenCountries.split(',').map((c: string) => `"${c.trim()}"`).filter((c: string) => c !== '""').join(', ');
-      script = script.replace(/const PaisesProhibidos = \[.*?\];/, `const PaisesProhibidos = [${countries}];`);
+      script = script.replace(/(var|let|const)\s+PaisesProhibidos\s*=\s*\[.*?\];/gi, `$1 PaisesProhibidos = [${countries}];`);
       const ips = accessData.bannedIps.split('\n').map((i: string) => `"${i.trim()}"`).filter((i: string) => i !== '""').join(', ');
-      script = script.replace(/let IpPlayers = \[.*?\];/, `let IpPlayers = [${ips}];`);
+      script = script.replace(/(var|let|const)\s+IpPlayers\s*=\s*\[.*?\];/gi, `$1 IpPlayers = [${ips}];`);
       const nicks = accessData.forbiddenNicks.split(',').map((n: string) => `"${n.trim()}"`).filter((n: string) => n !== '""').join(', ');
-      script = script.replace(/const NicknamesPROHIBIDOS = \[.*?\];/, `const NicknamesPROHIBIDOS = [${nicks}];`);
+      script = script.replace(/(var|let|const)\s+NicknamesPROHIBIDOS\s*=\s*\[.*?\];/gi, `$1 NicknamesPROHIBIDOS = [${nicks}];`);
       
       const registeredLines = accessData.registeredPlayers.split('\n').filter((l: string) => l.includes(':'));
       const players = registeredLines.map((line: string) => {
@@ -454,7 +471,7 @@ export default function EditorPage() {
         return `  { auth: "${auth.trim()}", nicks: [${nicks}] }`;
       }).join(',\n');
       
-      script = script.replace(/var ListaDeJogadores = \[[\s\S]*?\];/, `var ListaDeJogadores = [\n${players || '  { auth: "authid_jugador1", nicks: ["Jugador1"] }'}\n];`);
+      script = script.replace(/(var|let|const)\s+ListaDeJogadores\s*=\s*\[[\s\S]*?\];/i, `$1 ListaDeJogadores = [\n${players || '  { auth: "authid_jugador1", nicks: ["Jugador1"] }'}\n];`);
 
       const bannedAuthLines = accessData.bannedAuthNick.split('\n').filter((l: string) => l.includes(':'));
       const bannedPlayers = bannedAuthLines.map((line: string) => {
@@ -463,24 +480,13 @@ export default function EditorPage() {
         return `  { auth: "${auth.trim()}", nicks: [${nicks}] }`;
       }).join(',\n');
       
-      script = script.replace(/var ListaDeBaneados = \[[\s\S]*?\];/, `var ListaDeBaneados = [\n${bannedPlayers || '  { auth: "banned_auth", nicks: ["BannedNick"] }'}\n];`);
+      script = script.replace(/(var|let|const)\s+ListaDeBaneados\s*=\s*\[[\s\S]*?\];/i, `$1 ListaDeBaneados = [\n${bannedPlayers || '  { auth: "banned_auth", nicks: ["BannedNick"] }'}\n];`);
     }
 
     const discordWebhooksData = getData('discordWebhooks');
     if (discordWebhooksData) {
-      script = script.replace(/var AnuncioHostAbierto = ".*?";/, `var AnuncioHostAbierto = "${discordWebhooksData.webhookHostOpen}";`);
-      script = script.replace(/var MensajeHostAbierto = `[\s\S]*?`;/, `var MensajeHostAbierto = \`# ${discordWebhooksData.msgHostOpen.replace('# ', '')}\`;`);
-      script = script.replace(/var TagHostAbierto = ".*?";/, `var TagHostAbierto = "${discordWebhooksData.tagHostOpen}";`);
-      script = script.replace(/const WebhookGrabaciones = ".*?";/, `const WebhookGrabaciones = "${discordWebhooksData.webhookRecordings}";`);
-      script = script.replace(/var WebhookParaLlamarAdmins = ".*?";/, `var WebhookParaLlamarAdmins = "${discordWebhooksData.webhookCallAdmins}";`);
-      script = script.replace(/var RolAdminHost = ".*?";/, `var RolAdminHost = "${discordWebhooksData.rolAdminDiscord}";`);
-      script = script.replace(/var tiempoEsperaAdminsEnMinutos = .*?;/, `var tiempoEsperaAdminsEnMinutos = ${discordWebhooksData.waitAdmins};`);
-      script = script.replace(/const AnuncioKicksBans = ".*?";/, `const AnuncioKicksBans = "${discordWebhooksData.webhookKicksBans}";`);
-      script = script.replace(/var webhookMensajesJugadores = ".*?";/, `var webhookMensajesJugadores = "${discordWebhooksData.webhookMessages}";`);
-      script = script.replace(/var webhookBoletero = ".*?";/, `var webhookBoletero = "${discordWebhooksData.webhookBoletero}";`);
-      script = script.replace(/var webhookEstadisticasJugadores = ".*?";/, `var webhookEstadisticasJugadores = "${discordWebhooksData.webhookStats}";`);
-      script = script.replace(/var WebhookParaFirmar = ".*?";/, `var WebhookParaFirmar = "${discordWebhooksData.webhookSign}";`);
-      script = script.replace(/var webhookIPJugadores = ".*?";/, `var webhookIPJugadores = "${discordWebhooksData.webhookIPs}";`);
+      script = replaceVar(script, 'AnuncioHostAbierto', discordWebhooksData.webhookHostOpen, true);
+      script = replaceVar(script, 'WebhookGrabaciones', discordWebhooksData.webhookRecordings, true);
     }
 
     setGeneratedCode(script);
