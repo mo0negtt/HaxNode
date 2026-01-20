@@ -87,7 +87,7 @@ export default function HomePage() {
       </main>
 
       <footer className="py-8 border-t border-border text-center text-muted-foreground text-sm">
-        <p>© 2024 HaxNode Editor. Built for the community.</p>
+        <p>© 2026 mo0negtt. Built for the community.</p>
       </footer>
     </div>
   );
