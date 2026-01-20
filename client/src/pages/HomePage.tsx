@@ -8,9 +8,12 @@ export default function HomePage() {
       <header className="border-b border-border py-6">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <Cpu className="w-6 h-6 text-primary-foreground" />
-            </div>
+            {/* Aquí comienza el cambio del logo */}
+            <img 
+              src="/favicon-hn.png" 
+              alt="HaxNode Logo" 
+              className="w-10 h-10 rounded-xl shadow-lg shadow-primary/20 object-contain"
+            />
             <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">
               Hax<span className="text-primary">Node</span>
             </h1>
